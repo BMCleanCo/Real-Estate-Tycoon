@@ -1,0 +1,2402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Estate Tycoon</title>
+<style>
+/* ============================================================
+   BASE
+   ============================================================ */
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0d1b2a; overflow:hidden; font-family:'Segoe UI',Arial,sans-serif; user-select:none; }
+canvas#gameCanvas { display:block; cursor:grab; position:fixed; top:0; left:0; }
+canvas#gameCanvas.grabbing { cursor:grabbing; }
+canvas#gameCanvas.placing { cursor:crosshair; }
+
+/* ============================================================
+   HUD — TOP BAR
+   ============================================================ */
+#hud {
+  position:fixed; top:0; left:0; right:0; height:48px;
+  background:linear-gradient(180deg,rgba(10,20,35,0.97),rgba(10,20,35,0.85));
+  border-bottom:1px solid rgba(100,180,255,0.2);
+  display:flex; align-items:center; gap:0; z-index:100;
+  padding:0 8px;
+}
+.hud-item {
+  display:flex; flex-direction:column; align-items:center;
+  padding:0 14px; border-right:1px solid rgba(255,255,255,0.08);
+  min-width:110px;
+}
+.hud-label { font-size:9px; color:#6a9abf; text-transform:uppercase; letter-spacing:1px; }
+.hud-value { font-size:16px; font-weight:700; color:#e8f4ff; line-height:1.1; }
+#cashDisplay  { color:#f5c842; }
+#incomeDisplay{ color:#50e090; }
+#networthDisplay{ color:#a0c8ff; }
+#titleDisplay { font-size:11px; color:#c8a040; }
+#townDisplay  { font-size:13px; color:#90c8ff; }
+#hudRight {
+  margin-left:auto; display:flex; align-items:center; gap:8px; padding-right:4px;
+}
+#settingsBtn {
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+  color:#ccc; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:16px;
+}
+#settingsBtn:hover { background:rgba(255,255,255,0.15); }
+#dealBoardBtn, #loanBtn {
+  background:rgba(80,160,255,0.15); border:1px solid rgba(80,160,255,0.3);
+  color:#80c0ff; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px;
+  font-weight:600; display:none;
+}
+#dealBoardBtn:hover,#loanBtn:hover { background:rgba(80,160,255,0.25); }
+
+/* ============================================================
+   TOOLBAR — BOTTOM BAR
+   ============================================================ */
+#toolbar {
+  position:fixed; bottom:0; left:0; right:0;
+  background:linear-gradient(0deg,rgba(10,20,35,0.97),rgba(10,20,35,0.88));
+  border-top:1px solid rgba(100,180,255,0.2);
+  z-index:100; padding:6px 8px 8px;
+}
+#tabBar {
+  display:flex; gap:4px; margin-bottom:6px;
+}
+.tab-btn {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+  color:#8aaabb; border-radius:6px 6px 0 0; padding:4px 14px;
+  cursor:pointer; font-size:12px; font-weight:600; transition:all 0.15s;
+}
+.tab-btn:hover { background:rgba(255,255,255,0.12); color:#cce; }
+.tab-btn.active { background:rgba(80,160,255,0.2); border-color:rgba(80,160,255,0.4); color:#90d0ff; }
+#buildingButtons {
+  display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;
+}
+#buildingButtons::-webkit-scrollbar { height:4px; }
+#buildingButtons::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:2px; }
+.build-btn {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+  color:#ccd; border-radius:8px; padding:6px 10px; cursor:pointer;
+  min-width:100px; text-align:center; transition:all 0.15s; flex-shrink:0;
+}
+.build-btn:hover { background:rgba(255,255,255,0.13); border-color:rgba(255,255,255,0.25); }
+.build-btn.selected { background:rgba(80,200,120,0.2); border-color:#50c878; color:#80ffaa; }
+.build-btn.unaffordable { opacity:0.45; }
+.btn-name { font-size:11px; font-weight:600; margin-bottom:2px; }
+.btn-cost { font-size:10px; color:#f5c842; }
+.btn-req  { font-size:9px;  color:#e08040; margin-top:1px; }
+
+/* ============================================================
+   BUILDING INFO PANEL
+   ============================================================ */
+#buildingPanel {
+  position:fixed; left:12px; top:60px;
+  background:rgba(8,18,32,0.96); border:1px solid rgba(100,180,255,0.25);
+  border-radius:12px; padding:16px; width:240px;
+  z-index:200; display:none; color:#dde;
+  box-shadow:0 4px 24px rgba(0,0,0,0.6);
+}
+#buildingPanel h3 { font-size:15px; color:#90d0ff; margin-bottom:4px; }
+#panelDesc { font-size:11px; color:#7a9ab0; margin-bottom:10px; }
+.panel-stat { font-size:12px; color:#aac; margin:3px 0; }
+.panel-stat span { color:#e8f4ff; font-weight:600; }
+#panelButtons { display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+.panel-btn {
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+  color:#ccd; border-radius:7px; padding:7px 10px; cursor:pointer;
+  font-size:12px; font-weight:600; transition:all 0.15s; text-align:center;
+}
+.panel-btn:hover { background:rgba(255,255,255,0.15); }
+.panel-btn.upgrade { border-color:rgba(80,200,120,0.4); color:#80e0a0; }
+.panel-btn.upgrade:hover { background:rgba(80,200,120,0.15); }
+.panel-btn.sell    { border-color:rgba(255,200,50,0.4);  color:#f5c842; }
+.panel-btn.sell:hover    { background:rgba(255,200,50,0.12); }
+.panel-btn.demolish{ border-color:rgba(255,80,80,0.4);  color:#ff8080; }
+.panel-btn.demolish:hover{ background:rgba(255,80,80,0.12); }
+#closePanelBtn {
+  position:absolute; top:10px; right:10px;
+  background:none; border:none; color:#668; font-size:16px; cursor:pointer;
+}
+#closePanelBtn:hover { color:#aac; }
+
+/* ============================================================
+   MINIMAP
+   ============================================================ */
+#minimapWrap {
+  position:fixed; bottom:120px; right:12px; z-index:100;
+  border:1px solid rgba(100,180,255,0.25); border-radius:8px;
+  overflow:hidden; background:#0a1420;
+  box-shadow:0 2px 12px rgba(0,0,0,0.5);
+}
+canvas#minimapCanvas { display:block; }
+#minimapLabel {
+  position:absolute; top:2px; left:4px; font-size:8px;
+  color:rgba(100,180,255,0.6); pointer-events:none;
+}
+
+/* ============================================================
+   NOTIFICATION FEED
+   ============================================================ */
+#notificationFeed {
+  position:fixed; right:12px; top:58px;
+  width:220px; z-index:100; display:flex; flex-direction:column; gap:4px;
+  max-height:40vh; overflow:hidden; pointer-events:none;
+}
+.notification {
+  background:rgba(10,20,40,0.92); border:1px solid rgba(100,180,255,0.2);
+  border-radius:7px; padding:6px 10px; font-size:11px; color:#b0cce0;
+  transition:opacity 0.5s; line-height:1.4;
+}
+
+/* ============================================================
+   DEAL BOARD
+   ============================================================ */
+#dealBoard {
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+  background:rgba(8,18,32,0.97); border:1px solid rgba(100,200,255,0.3);
+  border-radius:14px; padding:20px; width:380px; z-index:300; display:none;
+  box-shadow:0 8px 40px rgba(0,0,0,0.7); color:#dde;
+}
+#dealBoard h2 { font-size:17px; color:#90d0ff; margin-bottom:4px; }
+#dealBoard .subtitle { font-size:11px; color:#668; margin-bottom:14px; }
+.deal-item {
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+  border-radius:9px; padding:12px; margin-bottom:10px;
+}
+.deal-item.deal-completed { border-color:rgba(80,200,120,0.4); background:rgba(80,200,120,0.06); }
+.deal-text { font-size:12px; color:#cce; margin-bottom:4px; }
+.deal-reward { font-size:13px; color:#f5c842; font-weight:700; }
+.deal-timer  { font-size:10px; color:#668; margin-top:3px; }
+#closeDealBtn {
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+  color:#aac; border-radius:7px; padding:7px 18px; cursor:pointer;
+  font-size:12px; margin-top:6px; width:100%;
+}
+#closeDealBtn:hover { background:rgba(255,255,255,0.15); }
+
+/* ============================================================
+   LOAN PANEL
+   ============================================================ */
+#loanPanel {
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+  background:rgba(8,18,32,0.97); border:1px solid rgba(255,200,80,0.3);
+  border-radius:14px; padding:20px; width:320px; z-index:300; display:none;
+  box-shadow:0 8px 40px rgba(0,0,0,0.7); color:#dde;
+}
+#loanPanel h2 { font-size:17px; color:#f5c842; margin-bottom:4px; }
+#loanPanel .subtitle { font-size:11px; color:#668; margin-bottom:14px; }
+.loan-option {
+  background:rgba(255,200,50,0.07); border:1px solid rgba(255,200,50,0.2);
+  border-radius:9px; padding:12px; margin-bottom:8px; cursor:pointer;
+  transition:all 0.15s;
+}
+.loan-option:hover { background:rgba(255,200,50,0.14); border-color:rgba(255,200,50,0.4); }
+.loan-name   { font-size:14px; color:#f5c842; font-weight:700; }
+.loan-detail { font-size:11px; color:#998; margin-top:2px; }
+.loan-active { font-size:11px; color:#f08040; margin-top:8px; padding-top:8px;
+               border-top:1px solid rgba(255,255,255,0.08); }
+#closeLoanBtn {
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+  color:#aac; border-radius:7px; padding:7px 18px; cursor:pointer;
+  font-size:12px; margin-top:6px; width:100%;
+}
+#closeLoanBtn:hover { background:rgba(255,255,255,0.15); }
+
+/* ============================================================
+   MILESTONE BANNER
+   ============================================================ */
+#milestoneBanner {
+  position:fixed; top:60px; left:50%; transform:translateX(-50%);
+  background:linear-gradient(135deg,#1a3a0a,#0a2a1a,#0a1a3a);
+  border:2px solid #50e090; border-radius:14px; padding:16px 32px;
+  text-align:center; z-index:400; display:none;
+  box-shadow:0 0 40px rgba(80,224,144,0.4);
+  animation:bannerPop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+@keyframes bannerPop {
+  from { transform:translateX(-50%) scale(0.5); opacity:0; }
+  to   { transform:translateX(-50%) scale(1);   opacity:1; }
+}
+#bannerTitle { font-size:20px; font-weight:800; color:#50e090; margin-bottom:4px; }
+#bannerSub   { font-size:13px; color:#a0e8b0; }
+#bannerEmoji { font-size:28px; margin-bottom:6px; }
+
+/* ============================================================
+   INTRO OVERLAY
+   ============================================================ */
+#introOverlay {
+  position:fixed; inset:0;
+  background:linear-gradient(135deg,rgba(5,10,25,0.96),rgba(10,20,40,0.98));
+  z-index:500; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; text-align:center; padding:40px;
+}
+#introOverlay h1 {
+  font-size:36px; font-weight:900; color:#90d0ff; margin-bottom:12px;
+  text-shadow:0 0 40px rgba(144,208,255,0.6);
+}
+#introOverlay .intro-sub {
+  font-size:16px; color:#8aaabb; max-width:480px; line-height:1.6; margin-bottom:24px;
+}
+.intro-stats { display:flex; gap:24px; margin-bottom:28px; }
+.intro-stat { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px; padding:12px 20px; }
+.intro-stat-label { font-size:10px; color:#668; text-transform:uppercase; }
+.intro-stat-value { font-size:18px; color:#f5c842; font-weight:700; }
+#startBtn {
+  background:linear-gradient(135deg,#1a6a3a,#0a4a6a);
+  border:2px solid #50c878; color:#a0ffb8; border-radius:12px;
+  padding:14px 40px; font-size:17px; font-weight:700; cursor:pointer;
+  transition:all 0.2s; letter-spacing:0.5px;
+}
+#startBtn:hover { background:linear-gradient(135deg,#2a8a4a,#1a6a8a); transform:scale(1.03); }
+
+/* ============================================================
+   SAVE TOAST
+   ============================================================ */
+#saveToast {
+  position:fixed; bottom:125px; left:50%; transform:translateX(-50%);
+  background:rgba(8,30,15,0.9); border:1px solid rgba(80,200,120,0.4);
+  color:#80e0a0; border-radius:20px; padding:6px 16px; font-size:11px;
+  z-index:200; opacity:0; transition:opacity 0.4s; pointer-events:none;
+}
+
+/* ============================================================
+   SETTINGS MENU
+   ============================================================ */
+#settingsMenu {
+  position:fixed; top:56px; right:12px;
+  background:rgba(8,18,32,0.97); border:1px solid rgba(100,180,255,0.2);
+  border-radius:10px; padding:12px; z-index:300; display:none; min-width:160px;
+}
+.settings-item {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+  color:#aac; border-radius:6px; padding:8px 12px; cursor:pointer;
+  font-size:12px; width:100%; text-align:left; margin-bottom:6px;
+}
+.settings-item:last-child { margin-bottom:0; }
+.settings-item:hover { background:rgba(255,255,255,0.13); }
+.settings-item.danger { border-color:rgba(255,80,80,0.3); color:#ff9090; }
+.settings-item.danger:hover { background:rgba(255,80,80,0.1); }
+
+/* ============================================================
+   LAND COST TOOLTIP
+   ============================================================ */
+#landTooltip {
+  position:fixed; background:rgba(8,18,32,0.95);
+  border:1px solid rgba(100,180,255,0.25); border-radius:8px;
+  padding:6px 10px; font-size:11px; color:#90c8ff;
+  z-index:150; pointer-events:none; display:none;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     HUD
+     ============================================================ -->
+<div id="hud">
+  <div class="hud-item">
+    <div class="hud-label">Cash</div>
+    <div class="hud-value" id="cashDisplay">$10,000</div>
+  </div>
+  <div class="hud-item">
+    <div class="hud-label">Income / min</div>
+    <div class="hud-value" id="incomeDisplay">$0</div>
+  </div>
+  <div class="hud-item">
+    <div class="hud-label">Net Worth</div>
+    <div class="hud-value" id="networthDisplay">$10,000</div>
+  </div>
+  <div class="hud-item">
+    <div class="hud-label">Title</div>
+    <div class="hud-value" id="titleDisplay">Aspiring Tycoon</div>
+  </div>
+  <div class="hud-item">
+    <div class="hud-label">Area</div>
+    <div class="hud-value" id="townDisplay">Dusty Flats</div>
+  </div>
+  <div id="hudRight">
+    <button id="dealBoardBtn" onclick="showDealBoard()">📋 Deals</button>
+    <button id="loanBtn" onclick="showLoanPanel()">🏦 Loans</button>
+    <button id="settingsBtn" onclick="toggleSettings()">⚙</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     GAME CANVAS
+     ============================================================ -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- ============================================================
+     TOOLBAR
+     ============================================================ -->
+<div id="toolbar">
+  <div id="tabBar"></div>
+  <div id="buildingButtons"></div>
+</div>
+
+<!-- ============================================================
+     MINIMAP
+     ============================================================ -->
+<div id="minimapWrap">
+  <span id="minimapLabel">MAP</span>
+  <canvas id="minimapCanvas" width="160" height="100"></canvas>
+</div>
+
+<!-- ============================================================
+     NOTIFICATION FEED
+     ============================================================ -->
+<div id="notificationFeed"></div>
+
+<!-- ============================================================
+     BUILDING INFO PANEL
+     ============================================================ -->
+<div id="buildingPanel">
+  <button id="closePanelBtn" onclick="hideBuildingPanel()">✕</button>
+  <h3 id="panelName">Building Name</h3>
+  <div id="panelDesc">Description</div>
+  <div class="panel-stat">Income: <span id="panelIncome">—</span></div>
+  <div class="panel-stat">Lifetime earned: <span id="panelEarned">$0</span></div>
+  <div class="panel-stat">Upgrade level: <span id="panelUpgLevel">0 / 3</span></div>
+  <div id="panelButtons">
+    <button id="upgradeBuildingBtn" class="panel-btn upgrade">Upgrade</button>
+    <button id="sellBuildingBtn"    class="panel-btn sell">Sell</button>
+    <button id="demolishBuildingBtn" class="panel-btn demolish">Demolish (no refund)</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     DEAL BOARD
+     ============================================================ -->
+<div id="dealBoard">
+  <h2>📋 Deal Board</h2>
+  <div class="subtitle">Complete deals for big cash rewards. Refreshes every 5 minutes.</div>
+  <div id="dealsList"></div>
+  <button id="closeDealBtn" onclick="hideDealBoard()">Close</button>
+</div>
+
+<!-- ============================================================
+     LOAN PANEL
+     ============================================================ -->
+<div id="loanPanel">
+  <h2>🏦 Bank Loans</h2>
+  <div class="subtitle">Borrow now, repay from 10% of income/min. 15% interest.</div>
+  <div class="loan-option" onclick="takeLoan(50000)">
+    <div class="loan-name">$50,000</div>
+    <div class="loan-detail">Repay $57,500 total</div>
+  </div>
+  <div class="loan-option" onclick="takeLoan(200000)">
+    <div class="loan-name">$200,000</div>
+    <div class="loan-detail">Repay $230,000 total</div>
+  </div>
+  <div class="loan-option" onclick="takeLoan(1000000)">
+    <div class="loan-name">$1,000,000</div>
+    <div class="loan-detail">Repay $1,150,000 total</div>
+  </div>
+  <div id="activeLoanInfo" class="loan-active" style="display:none"></div>
+  <button id="closeLoanBtn" onclick="hideLoanPanel()">Close</button>
+</div>
+
+<!-- ============================================================
+     MILESTONE BANNER
+     ============================================================ -->
+<div id="milestoneBanner">
+  <div id="bannerEmoji">🏆</div>
+  <div id="bannerTitle">Milestone!</div>
+  <div id="bannerSub">You did it!</div>
+</div>
+
+<!-- ============================================================
+     INTRO OVERLAY
+     ============================================================ -->
+<div id="introOverlay">
+  <h1>Real Estate Tycoon</h1>
+  <div class="intro-sub">
+    You're broke but ambitious. Build your real estate empire from the ground up —
+    buy land, construct buildings, collect rent, and grow your fortune across three towns.
+  </div>
+  <div class="intro-stats">
+    <div class="intro-stat">
+      <div class="intro-stat-label">Starting Cash</div>
+      <div class="intro-stat-value">$10,000</div>
+    </div>
+    <div class="intro-stat">
+      <div class="intro-stat-label">Towns to Unlock</div>
+      <div class="intro-stat-value">3</div>
+    </div>
+    <div class="intro-stat">
+      <div class="intro-stat-label">Buildings</div>
+      <div class="intro-stat-value">26</div>
+    </div>
+  </div>
+  <button id="startBtn" onclick="startGame()">Start Building →</button>
+</div>
+
+<!-- ============================================================
+     SETTINGS MENU
+     ============================================================ -->
+<div id="settingsMenu">
+  <button class="settings-item" onclick="toggleSettings()">Resume Game</button>
+  <button class="settings-item danger" onclick="newGame()">🗑 New Game</button>
+</div>
+
+<!-- ============================================================
+     LAND TOOLTIP
+     ============================================================ -->
+<div id="landTooltip"></div>
+
+<!-- ============================================================
+     SAVE TOAST
+     ============================================================ -->
+<div id="saveToast">Game Saved ✓</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// SECTION 1: CONSTANTS
+// ============================================================
+const TILE_W  = 64;   // isometric tile width  (screen pixels at zoom=1)
+const TILE_H  = 32;   // isometric tile height (screen pixels at zoom=1)
+const MAP_SIZE = 48;  // 48×48 tile world
+const INCOME_INTERVAL = 60000; // income fires every 60 real seconds per building
+
+// ============================================================
+// SECTION 2: BUILDING DEFINITIONS
+// All 26 buildings. h = visual box height in px at zoom=1.
+// ============================================================
+const BUILDING_DEFS = {
+  // --- Residential ---
+  dirt_lot:       { name:'Dirt Lot',          cat:'residential',   cost:500,     income:0,      residents:0,   color:'#8B7355', h:4,  desc:'Clears land. No income.' },
+  starter_shack:  { name:'Starter Shack',     cat:'residential',   cost:1000,    income:10,     residents:4,   color:'#C49A6C', h:14, desc:'+$10/min rent, 4 residents' },
+  small_house:    { name:'Small House',        cat:'residential',   cost:5000,    income:40,     residents:8,   color:'#E8C87A', h:18, desc:'+$40/min rent, 8 residents' },
+  duplex:         { name:'Duplex',             cat:'residential',   cost:12000,   income:90,     residents:16,  color:'#D4A044', h:22, desc:'+$90/min rent, 16 residents' },
+  apartment_block:{ name:'Apartment Block',   cat:'residential',   cost:50000,   income:350,    residents:60,  color:'#9A8090', h:34, desc:'+$350/min rent, 60 residents' },
+  luxury_condo:   { name:'Luxury Condo Tower', cat:'residential',  cost:250000,  income:2000,   residents:200, color:'#6AB0C8', h:52, desc:'+$2,000/min rent, 200 residents' },
+
+  // --- Commercial ---
+  food_truck:     { name:'Food Truck Spot',    cat:'commercial',    cost:2000,    income:25,     color:'#E8A020', h:11, desc:'+$25/min revenue' },
+  corner_store:   { name:'Corner Store',       cat:'commercial',    cost:8000,    income:80,     color:'#D47840', h:15, desc:'+$80/min revenue' },
+  strip_mall:     { name:'Strip Mall',         cat:'commercial',    cost:35000,   income:400,    color:'#C07040', h:20, desc:'+$400/min revenue' },
+  office_building:{ name:'Office Building',    cat:'commercial',    cost:120000,  income:1200,   color:'#507878', h:38, desc:'+$1,200/min revenue' },
+  shopping_center:{ name:'Shopping Center',    cat:'commercial',    cost:500000,  income:5000,   color:'#4888A0', h:30, desc:'+$5,000/min revenue' },
+  skyscraper_hq:  { name:'Skyscraper HQ',      cat:'commercial',    cost:2000000, income:20000,  color:'#3878C0', h:76, desc:'+$20,000/min revenue' },
+
+  // --- Industrial ---
+  storage_unit:   { name:'Storage Unit',       cat:'industrial',    cost:10000,   income:60,     color:'#808050', h:13, desc:'+$60/min revenue' },
+  warehouse:      { name:'Warehouse',          cat:'industrial',    cost:40000,   income:300,    color:'#705840', h:17, desc:'+$300/min revenue' },
+  distrib_center: { name:'Distribution Center',cat:'industrial',    cost:150000,  income:1500,   color:'#604840', h:22, desc:'+$1,500/min revenue' },
+  factory_complex:{ name:'Factory Complex',    cat:'industrial',    cost:600000,  income:7000,   color:'#583830', h:32, desc:'+$7,000/min revenue' },
+
+  // --- Infrastructure ---
+  dirt_road:      { name:'Dirt Road',          cat:'infrastructure',cost:200,     income:0, infra:true,
+                    color:'#9A7850', h:2, desc:'Basic road. Required for access.' },
+  paved_road:     { name:'Paved Road',         cat:'infrastructure',cost:1000,    income:0, infra:true,
+                    boost:0.05, boostRange:1, color:'#606060', h:2,
+                    desc:'Unlocks car animations. +5% income to adjacent buildings.' },
+  park:           { name:'Park / Green Space',  cat:'infrastructure',cost:5000,    income:0, infra:true,
+                    boost:0.15, boostRange:1, boostCat:'residential', color:'#38A038', h:5,
+                    desc:'+15% income boost to adjacent residential.' },
+  bus_stop:       { name:'Bus Stop',           cat:'infrastructure',cost:3000,    income:0, infra:true,
+                    boost:0.10, boostRange:1, boostCat:'commercial', color:'#E8A000', h:9,
+                    desc:'+10% income boost to adjacent commercial.' },
+  street_light:   { name:'Street Lights',      cat:'infrastructure',cost:500,     income:0, infra:true,
+                    boost:0.03, boostRange:1, color:'#E0D840', h:7,
+                    desc:'+3% income boost to adjacent buildings.' },
+  transit_hub:    { name:'Transit Hub',        cat:'infrastructure',cost:80000,   income:0, infra:true,
+                    boost:0.25, boostRange:5, color:'#3858C0', h:24,
+                    desc:'+25% income boost to all buildings within 5 tiles.' },
+
+  // --- Special ---
+  town_hall:      { name:'Town Hall',          cat:'special',       cost:200000,  income:0,  color:'#B89800', h:38, desc:'Unlocks town upgrades and milestone bonuses.' },
+  real_estate_agency:{ name:'Real Estate Agency',cat:'special',     cost:75000,   income:0,  color:'#B07030', h:22, desc:'Unlocks the Deal Board for bonus rewards.' },
+  bank:           { name:'Bank',               cat:'special',       cost:100000,  income:500, color:'#B0B888', h:30, desc:'+$500/min passive income. Unlocks loans.' },
+  hotel:          { name:'Hotel',              cat:'special',       cost:800000,  income:8000,color:'#7850C0', h:46, desc:'+$8,000/min. Requires adjacent paved road + park.' },
+};
+
+const CATEGORIES = ['residential','commercial','industrial','infrastructure','special'];
+
+// ============================================================
+// SECTION 3: TOWNS
+// ============================================================
+const TOWNS = [
+  {
+    id:0, name:'Dusty Flats', multiplier:1, unlockCash:0, unlocked:true,
+    bounds:{c1:2,r1:2,c2:17,r2:17}, baseLandCost:500,
+    color:'#c4a882', desc:'A humble starting town on flat terrain.'
+  },
+  {
+    id:1, name:'Millbrook', multiplier:2, unlockCash:500000, unlocked:false,
+    bounds:{c1:24,r1:2,c2:38,r2:20}, baseLandCost:2000,
+    color:'#82c882', desc:'A mid-size town with existing infrastructure.'
+  },
+  {
+    id:2, name:'Crestview Heights', multiplier:4, unlockCash:5000000, unlocked:false,
+    bounds:{c1:24,r1:26,c2:38,r2:42}, baseLandCost:8000,
+    color:'#8882c8', desc:'A premium district with soaring property values.'
+  },
+];
+
+// ============================================================
+// ============================================================
+// SECTION 4: GAME STATE
+// ============================================================
+const gameState = {
+  cash:           10000,
+  totalEarned:    0,
+  netWorth:       10000,
+  buildingsPlaced:0,
+  incomePerMin:   0,
+  title:          'Aspiring Tycoon',
+
+  // World data
+  tiles:     [],   // [row][col] = { type, townId, owned, landCost }
+  buildings: {},   // "col,row" => { type, upgradeLevel, totalEarned, nextIncomeAt, id }
+  ownedLand: {},   // "col,row" => true
+
+  // Finance
+  loans:     [],   // [{ amount, remaining, nextPayAt }]
+  boostCache:{},   // "col,row" => cumulative boost multiplier
+
+  // UI state
+  selectedBuilding: null,  // building type key for placement mode
+  selectedTile:     null,  // { col, row } of open building panel
+  hoverTile:        null,  // { col, row } under cursor in placement mode
+  activeTab:        'residential',
+
+  // Unlockables
+  dealBoardUnlocked: false,
+  loansUnlocked:     false,
+  deals:             [],
+  lastDealRefresh:   0,
+
+  // Camera
+  camera: { x:0, y:0, zoom:1.0 },
+
+  // Animation state
+  cars:        [],
+  pedestrians: [],
+  particles:   [],
+  floatingTexts:[],
+
+  // Day/night (10-min real-time full cycle)
+  dayPhase: 0,  // 0=noon … 1=back to noon
+
+  // Misc
+  milestones:  {},
+  lastSave:    0,
+  lastUpdate:  0,
+};
+
+// ============================================================
+// SECTION 5: MAP GENERATION
+// ============================================================
+function generateMap() {
+  // Initialise every tile as empty wilderness
+  gameState.tiles = [];
+  for (let r = 0; r < MAP_SIZE; r++) {
+    gameState.tiles[r] = [];
+    for (let c = 0; c < MAP_SIZE; c++) {
+      gameState.tiles[r][c] = { type:'empty', townId:-1, owned:false, landCost:0 };
+    }
+  }
+
+  // Stamp the three town land areas
+  for (const town of TOWNS) {
+    const b = town.bounds;
+    for (let r = b.r1; r <= b.r2; r++) {
+      for (let c = b.c1; c <= b.c2; c++) {
+        gameState.tiles[r][c] = {
+          type:'grass', townId:town.id, owned:false, landCost:town.baseLandCost
+        };
+      }
+    }
+  }
+
+  // Rivers: vertical strip between towns 1 and 2 (cols 19-23)
+  for (let r = 0; r < MAP_SIZE; r++) {
+    for (let c = 19; c <= 23; c++) {
+      gameState.tiles[r][c] = { type:'water', townId:-1, owned:false, landCost:0 };
+    }
+  }
+  // Horizontal river separating towns 2 and 3 (rows 21-25, right half)
+  for (let r = 21; r <= 25; r++) {
+    for (let c = 22; c < MAP_SIZE; c++) {
+      if (gameState.tiles[r][c].type !== 'water') {
+        gameState.tiles[r][c] = { type:'water', townId:-1, owned:false, landCost:0 };
+      }
+    }
+  }
+
+  // Fill remaining non-town, non-water tiles with trees
+  for (let r = 0; r < MAP_SIZE; r++) {
+    for (let c = 0; c < MAP_SIZE; c++) {
+      if (gameState.tiles[r][c].type === 'empty') {
+        gameState.tiles[r][c] = { type:'tree', townId:-1, owned:false, landCost:0 };
+      }
+    }
+  }
+
+  // Pre-place dirt roads in Town 1 (a simple cross pattern)
+  const t1DirtRoads = [
+    // Horizontal road at row 9
+    [2,9],[3,9],[4,9],[5,9],[6,9],[7,9],[8,9],[9,9],
+    [10,9],[11,9],[12,9],[13,9],[14,9],[15,9],[16,9],[17,9],
+    // Vertical road at col 9
+    [9,2],[9,3],[9,4],[9,5],[9,6],[9,7],[9,8],
+    [9,10],[9,11],[9,12],[9,13],[9,14],[9,15],[9,16],[9,17],
+  ];
+  for (const [c,r] of t1DirtRoads) {
+    _placePrebuiltInfra(c, r, 'dirt_road');
+  }
+
+  // Pre-place paved roads in Town 2
+  const t2PavedRoads = [
+    // Horizontal road at row 11
+    [24,11],[25,11],[26,11],[27,11],[28,11],[29,11],[30,11],
+    [31,11],[32,11],[33,11],[34,11],[35,11],[36,11],[37,11],[38,11],
+    // Vertical road at col 31
+    [31,2],[31,3],[31,4],[31,5],[31,6],[31,7],[31,8],[31,9],[31,10],
+    [31,12],[31,13],[31,14],[31,15],[31,16],[31,17],[31,18],[31,19],[31,20],
+  ];
+  for (const [c,r] of t2PavedRoads) {
+    _placePrebuiltInfra(c, r, 'paved_road');
+  }
+
+  // Centre camera on the middle of Town 1
+  const midCol = 9, midRow = 9;
+  const sp = isoToScreen(midCol, midRow);
+  gameState.camera.x = window.innerWidth  / 2 - sp.x;
+  gameState.camera.y = window.innerHeight / 2 - sp.y - 60;
+}
+
+function _placePrebuiltInfra(c, r, type) {
+  if (c < 0 || c >= MAP_SIZE || r < 0 || r >= MAP_SIZE) return;
+  if (gameState.tiles[r][c].type !== 'grass') return;
+  const key = `${c},${r}`;
+  gameState.buildings[key] = createBuilding(type);
+  gameState.tiles[r][c].owned = true;
+  gameState.ownedLand[key] = true;
+}
+
+// ============================================================
+// SECTION 6: ISOMETRIC MATH
+// ============================================================
+
+/** World tile (col, row) → canvas screen position (centre of tile top-face) */
+function isoToScreen(col, row) {
+  const zoom = gameState.camera.zoom;
+  const tw = TILE_W * zoom;
+  const th = TILE_H * zoom;
+  return {
+    x: (col - row) * (tw / 2) + gameState.camera.x,
+    y: (col + row) * (th / 2) + gameState.camera.y,
+  };
+}
+
+/** Canvas (sx, sy) → approximate tile (col, row) */
+function screenToIso(sx, sy) {
+  const zoom = gameState.camera.zoom;
+  const tw = TILE_W * zoom;
+  const th = TILE_H * zoom;
+  const wx = sx - gameState.camera.x;
+  const wy = sy - gameState.camera.y;
+  // Standard inverse isometric transform
+  const col = (wx / (tw / 2) + wy / (th / 2)) / 2;
+  const row = (wy / (th / 2) - wx / (tw / 2)) / 2;
+  return { col: Math.floor(col), row: Math.floor(row) };
+}
+
+// ============================================================
+// SECTION 7: BUILDING FACTORY
+// ============================================================
+let _buildingIdCounter = 1;
+
+function createBuilding(type) {
+  return {
+    type,
+    upgradeLevel: 0,
+    totalEarned:  0,
+    // Stagger income timers so they don't all fire simultaneously
+    nextIncomeAt: Date.now() + Math.random() * INCOME_INTERVAL,
+    id: _buildingIdCounter++,
+  };
+}
+
+// ============================================================
+// ============================================================
+// SECTION 8: CANVAS SETUP
+// ============================================================
+const canvas    = document.getElementById('gameCanvas');
+const ctx       = canvas.getContext('2d');
+const mmCanvas  = document.getElementById('minimapCanvas');
+const mmCtx     = mmCanvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ============================================================
+// SECTION 9: RENDERER
+// ============================================================
+
+/** Master render call — invoked every frame */
+function render(ts) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Sky background (shifts with day/night)
+  const nightPct = getNightPct();
+  const skyR = Math.round(13  + nightPct * 2);
+  const skyG = Math.round(27  + nightPct * 5);
+  const skyB = Math.round(42  + nightPct * 10);
+  ctx.fillStyle = `rgb(${skyR},${skyG},${skyB})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw tiles back-to-front using diagonal sweep (correct isometric depth order)
+  for (let sum = 0; sum < MAP_SIZE * 2 - 1; sum++) {
+    for (let r = Math.max(0, sum - MAP_SIZE + 1); r <= Math.min(sum, MAP_SIZE - 1); r++) {
+      const c = sum - r;
+      if (c < 0 || c >= MAP_SIZE) continue;
+      drawTile(ctx, c, r, ts);
+      const key = `${c},${r}`;
+      if (gameState.buildings[key]) drawBuilding(ctx, c, r, gameState.buildings[key], ts);
+    }
+  }
+
+  // Animated layers (drawn on top)
+  drawParticles(ctx);
+  drawCarsLayer(ctx);
+  drawPedestriansLayer(ctx);
+  drawFloatingTexts(ctx);
+
+  // Day/night vignette overlay
+  drawNightOverlay(ctx, nightPct);
+
+  // Placement preview on hover
+  if (gameState.selectedBuilding && gameState.hoverTile) drawPlacementPreview(ctx);
+
+  // Minimap
+  renderMinimap();
+}
+
+// ---- Tile drawing ----
+
+function drawTile(ctx, c, r, ts) {
+  const tile = gameState.tiles[r][c];
+  const sp   = isoToScreen(c, r);
+  const zoom = gameState.camera.zoom;
+  const tw   = TILE_W * zoom;
+  const th   = TILE_H * zoom;
+
+  // Frustum cull
+  if (sp.x + tw < 0 || sp.x - tw > canvas.width ||
+      sp.y + th < 0 || sp.y - th * 3 > canvas.height) return;
+
+  let topCol;
+  switch (tile.type) {
+    case 'grass':
+      topCol = tile.owned ? '#4e7a2e' : '#3a5e20';
+      break;
+    case 'water':
+      { const wave = Math.sin(ts * 0.0012 + c * 0.6 + r * 0.4) * 12;
+        topCol = `rgb(${28+wave|0},${75+wave*1.5|0},${160+wave|0})`; }
+      break;
+    case 'tree':
+      topCol = '#243d15';
+      break;
+    default:
+      topCol = '#1e2e3e';
+  }
+
+  // Placement hover highlight overrides colour
+  if (gameState.selectedBuilding && gameState.hoverTile &&
+      gameState.hoverTile.col === c && gameState.hoverTile.row === r) {
+    topCol = canPlace(c, r) ? '#70e870' : '#e87070';
+  }
+
+  drawIsoDiamond(ctx, sp.x, sp.y, tw, th, topCol);
+
+  // Extra per-tile visuals
+  if (tile.type === 'water' && zoom > 0.5) drawWaterShimmer(ctx, sp, tw, th, ts, c, r);
+  if (tile.type === 'tree')                drawTree(ctx, sp.x, sp.y, zoom, ts, c, r);
+  if (tile.type === 'grass' && !tile.owned && zoom > 0.8) drawForSaleGlyph(ctx, sp, zoom);
+}
+
+function drawIsoDiamond(ctx, cx, cy, tw, th, color) {
+  ctx.beginPath();
+  ctx.moveTo(cx,        cy - th / 2);
+  ctx.lineTo(cx + tw/2, cy);
+  ctx.lineTo(cx,        cy + th / 2);
+  ctx.lineTo(cx - tw/2, cy);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth   = 0.5;
+  ctx.stroke();
+}
+
+function drawWaterShimmer(ctx, sp, tw, th, ts, c, r) {
+  const a = (Math.sin(ts * 0.002 + c * 0.9 + r * 0.5) + 1) * 0.12;
+  ctx.globalAlpha = a;
+  ctx.fillStyle   = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(sp.x, sp.y, tw * 0.18, th * 0.09, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawTree(ctx, cx, cy, zoom, ts, c, r) {
+  const sway = Math.sin(ts * 0.0018 + c * 1.1 + r * 0.8) * 2.5 * zoom;
+  const bh   = 12 * zoom;
+  // Trunk
+  ctx.fillStyle = '#4a2e0e';
+  ctx.fillRect(cx - 2*zoom, cy - bh*0.5, 4*zoom, bh*0.6);
+  // Foliage layers
+  const cols = ['#1e5c0e','#277a14','#30961b'];
+  const sizes = [7, 5.5, 4];
+  const offY  = [0, -4, -8];
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = cols[i];
+    ctx.beginPath();
+    ctx.arc(cx + sway*(i*0.35), cy - bh - offY[i]*zoom, sizes[i]*zoom, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawForSaleGlyph(ctx, sp, zoom) {
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle   = '#ffe060';
+  ctx.font        = `${9*zoom}px Arial`;
+  ctx.textAlign   = 'center';
+  ctx.fillText('$', sp.x, sp.y + 4 * zoom);
+  ctx.globalAlpha = 1;
+}
+
+// ---- Building drawing ----
+
+function drawBuilding(ctx, c, r, bld, ts) {
+  const def  = BUILDING_DEFS[bld.type];
+  if (!def) return;
+  const sp   = isoToScreen(c, r);
+  const zoom = gameState.camera.zoom;
+  const tw   = TILE_W  * zoom;
+  const th   = TILE_H  * zoom;
+
+  // Frustum cull
+  if (sp.x + tw*2 < 0 || sp.x - tw*2 > canvas.width ||
+      sp.y + th*5 < 0 || sp.y - th*5 > canvas.height) return;
+
+  if (def.infra) {
+    drawInfrastructure(ctx, c, r, bld, def, sp, zoom, tw, th, ts);
+    return;
+  }
+
+  const upg  = bld.upgradeLevel || 0;
+  const h    = def.h * zoom * (1 + upg * 0.35);
+  const base = def.color || '#808080';
+  const left = colorMix(base, '#000000', 0.35);
+  const right= colorMix(base, '#000000', 0.55);
+
+  drawIsoBox(ctx, sp, tw, th, h, base, left, right);
+
+  // Floor lines for upgraded buildings
+  if (upg > 0) {
+    const floorH = def.h * zoom * 0.35;
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth   = zoom;
+    for (let i = 1; i <= upg; i++) {
+      const fy = sp.y + th/2 - i * floorH;
+      ctx.beginPath();
+      ctx.moveTo(sp.x - tw/2, fy); ctx.lineTo(sp.x, fy + th/2);
+      ctx.moveTo(sp.x,        fy + th/2); ctx.lineTo(sp.x + tw/2, fy);
+      ctx.stroke();
+    }
+  }
+
+  // Per-building decorative details
+  drawBuildingDetails(ctx, c, r, bld, def, sp, zoom, tw, th, h, ts);
+
+  // Subtle glow pulse for income-generating buildings
+  if (def.income > 0) {
+    const pulse = (Math.sin(ts * 0.003 + c * 0.7 + r * 0.5) + 1) * 0.5;
+    ctx.globalAlpha = 0.06 * pulse;
+    ctx.fillStyle   = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(sp.x,        sp.y - th/2 - h - 3*zoom);
+    ctx.lineTo(sp.x + tw/2 + 3*zoom, sp.y - h);
+    ctx.lineTo(sp.x,        sp.y + th/2 - h + 3*zoom);
+    ctx.lineTo(sp.x - tw/2 - 3*zoom, sp.y - h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Selected-tile yellow outline
+  if (gameState.selectedTile &&
+      gameState.selectedTile.col === c && gameState.selectedTile.row === r) {
+    ctx.strokeStyle = '#ffee00';
+    ctx.lineWidth   = 2 * zoom;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(sp.x,        sp.y - th/2 - h - 4*zoom);
+    ctx.lineTo(sp.x + tw/2 + 4*zoom, sp.y - h);
+    ctx.lineTo(sp.x,        sp.y + th/2 - h + 4*zoom);
+    ctx.lineTo(sp.x - tw/2 - 4*zoom, sp.y - h);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawIsoBox(ctx, sp, tw, th, h, topC, leftC, rightC) {
+  // Top face
+  ctx.beginPath();
+  ctx.moveTo(sp.x,        sp.y - th/2 - h);
+  ctx.lineTo(sp.x + tw/2, sp.y - h);
+  ctx.lineTo(sp.x,        sp.y + th/2 - h);
+  ctx.lineTo(sp.x - tw/2, sp.y - h);
+  ctx.closePath();
+  ctx.fillStyle   = topC;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth   = 0.8;
+  ctx.stroke();
+
+  // Left face
+  ctx.beginPath();
+  ctx.moveTo(sp.x - tw/2, sp.y - h);
+  ctx.lineTo(sp.x,        sp.y + th/2 - h);
+  ctx.lineTo(sp.x,        sp.y + th/2);
+  ctx.lineTo(sp.x - tw/2, sp.y);
+  ctx.closePath();
+  ctx.fillStyle = leftC;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.stroke();
+
+  // Right face
+  ctx.beginPath();
+  ctx.moveTo(sp.x,        sp.y + th/2 - h);
+  ctx.lineTo(sp.x + tw/2, sp.y - h);
+  ctx.lineTo(sp.x + tw/2, sp.y);
+  ctx.lineTo(sp.x,        sp.y + th/2);
+  ctx.closePath();
+  ctx.fillStyle = rightC;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.stroke();
+}
+
+function drawInfrastructure(ctx, c, r, bld, def, sp, zoom, tw, th, ts) {
+  switch (bld.type) {
+    case 'dirt_road':
+      drawIsoDiamond(ctx, sp.x, sp.y, tw, th, '#8a6840');
+      break;
+    case 'paved_road':
+      drawIsoDiamond(ctx, sp.x, sp.y, tw, th, '#555555');
+      // Dashed centre lines
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,220,0,0.7)';
+      ctx.lineWidth   = zoom;
+      ctx.setLineDash([4*zoom, 4*zoom]);
+      ctx.beginPath();
+      ctx.moveTo(sp.x - tw/2, sp.y); ctx.lineTo(sp.x + tw/2, sp.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(sp.x, sp.y - th/2); ctx.lineTo(sp.x, sp.y + th/2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      break;
+    case 'park':
+      drawIsoDiamond(ctx, sp.x, sp.y, tw, th, '#337a25');
+      { const sw = Math.sin(ts * 0.0015 + c + r) * 2 * zoom;
+        _drawSmallTree(ctx, sp.x - 9*zoom + sw, sp.y - 5*zoom, zoom);
+        _drawSmallTree(ctx, sp.x + 7*zoom - sw, sp.y - 3*zoom, zoom); }
+      break;
+    case 'bus_stop':
+      drawIsoDiamond(ctx, sp.x, sp.y, tw, th, '#444444');
+      ctx.fillStyle = '#e8a000';
+      ctx.fillRect(sp.x - 4*zoom, sp.y - 14*zoom, 8*zoom, 10*zoom);
+      ctx.fillStyle = '#b07800';
+      ctx.fillRect(sp.x - 5*zoom, sp.y - 16*zoom, 10*zoom, 3*zoom);
+      break;
+    case 'street_light':
+      drawIsoDiamond(ctx, sp.x, sp.y, tw, th, '#444444');
+      ctx.strokeStyle = '#b0b0b0';
+      ctx.lineWidth   = 2 * zoom;
+      ctx.beginPath();
+      ctx.moveTo(sp.x, sp.y - 2*zoom);
+      ctx.lineTo(sp.x, sp.y - 20*zoom);
+      ctx.lineTo(sp.x + 9*zoom, sp.y - 17*zoom);
+      ctx.stroke();
+      { const blink = (Math.sin(ts * 0.003 + c + r) + 1) * 0.5;
+        ctx.globalAlpha = 0.7 + blink * 0.3;
+        ctx.fillStyle = '#ffff80';
+        ctx.beginPath();
+        ctx.arc(sp.x + 9*zoom, sp.y - 17*zoom, 3*zoom, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1; }
+      break;
+    case 'transit_hub':
+      drawIsoBox(ctx, sp, tw, th, 24*zoom, '#3858c0', '#1e3a90', '#122a70');
+      ctx.fillStyle = '#7090ff';
+      ctx.font      = `bold ${10*zoom}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText('HUB', sp.x, sp.y - 26*zoom);
+      break;
+  }
+}
+
+function _drawSmallTree(ctx, x, y, zoom) {
+  ctx.fillStyle = '#1e5c0e';
+  ctx.beginPath();
+  ctx.arc(x, y - 6*zoom, 5*zoom, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#2a7a14';
+  ctx.beginPath();
+  ctx.arc(x, y - 9*zoom, 3.5*zoom, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawBuildingDetails(ctx, c, r, bld, def, sp, zoom, tw, th, h, ts) {
+  const type = bld.type;
+
+  // Factory / industrial smoke spawner
+  if (['factory_complex','warehouse','distrib_center'].includes(type)) {
+    if (Math.random() < 0.04) {
+      gameState.particles.push({
+        x: sp.x + (Math.random()-0.5) * 12*zoom,
+        y: sp.y - h - 4*zoom,
+        vx: (Math.random()-0.5) * 0.4,
+        vy: -0.6 - Math.random() * 0.5,
+        alpha: 0.55,
+        size: (4 + Math.random()*4) * zoom,
+        decay: 0.008 + Math.random() * 0.006,
+      });
+    }
+  }
+
+  // Blinking antenna light on tall buildings
+  if (['skyscraper_hq','luxury_condo','apartment_block'].includes(type)) {
+    const blink = Math.sin(ts * 0.004 + c + r) > 0.6;
+    if (blink) {
+      ctx.fillStyle = '#ff2020';
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y - h - th/2, 3.5*zoom, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Waving flag / antenna on houses and offices
+  if (['small_house','duplex','apartment_block','office_building','town_hall'].includes(type)) {
+    const wave = Math.sin(ts * 0.003 + c*0.8 + r*0.6) * 3.5 * zoom;
+    ctx.strokeStyle = '#909090';
+    ctx.lineWidth   = zoom;
+    ctx.beginPath();
+    ctx.moveTo(sp.x, sp.y - h - th/2);
+    ctx.lineTo(sp.x, sp.y - h - th/2 - 9*zoom);
+    ctx.stroke();
+    ctx.fillStyle = type === 'town_hall' ? '#ffd700' : '#e03030';
+    ctx.beginPath();
+    ctx.moveTo(sp.x,             sp.y - h - th/2 - 9*zoom);
+    ctx.lineTo(sp.x + wave+7*zoom, sp.y - h - th/2 - 5.5*zoom);
+    ctx.lineTo(sp.x,             sp.y - h - th/2 - 2*zoom);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Hotel sign
+  if (type === 'hotel') {
+    ctx.fillStyle = '#ff60b0';
+    ctx.font      = `bold ${9*zoom}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('HOTEL', sp.x, sp.y - h - th/2 - 4*zoom);
+  }
+
+  // Bank $ sign
+  if (type === 'bank') {
+    ctx.fillStyle = '#ffd700';
+    ctx.font      = `bold ${12*zoom}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('$', sp.x, sp.y - h - th/2 - 2*zoom);
+  }
+}
+
+function drawPlacementPreview(ctx) {
+  const { col:c, row:r } = gameState.hoverTile;
+  if (c < 0 || c >= MAP_SIZE || r < 0 || r >= MAP_SIZE) return;
+  const def  = BUILDING_DEFS[gameState.selectedBuilding];
+  if (!def)  return;
+  const sp   = isoToScreen(c, r);
+  const zoom = gameState.camera.zoom;
+  const tw   = TILE_W * zoom;
+  const th   = TILE_H * zoom;
+  const ok   = canPlace(c, r);
+  ctx.globalAlpha = 0.65;
+  if (!def.infra) {
+    const h = def.h * zoom;
+    drawIsoBox(ctx, sp, tw, th, h,
+      ok ? '#70ff90' : '#ff7070',
+      ok ? '#30c050' : '#c03030',
+      ok ? '#20a040' : '#a02020');
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---- Floating texts ----
+function drawFloatingTexts(ctx) {
+  gameState.floatingTexts = gameState.floatingTexts.filter(ft => ft.alpha > 0.02);
+  for (const ft of gameState.floatingTexts) {
+    ft.y   -= 0.7;
+    ft.alpha -= 0.007;
+    ctx.globalAlpha = ft.alpha;
+    ctx.font        = `bold ${ft.size||14}px Arial`;
+    ctx.textAlign   = 'center';
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.lineWidth   = 3;
+    ctx.strokeText(ft.text, ft.x, ft.y);
+    ctx.fillStyle   = ft.color || '#ffd700';
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---- Particles ----
+function drawParticles(ctx) {
+  gameState.particles = gameState.particles.filter(p => p.alpha > 0.02);
+  for (const p of gameState.particles) {
+    p.x     += p.vx;
+    p.y     += p.vy;
+    p.alpha -= p.decay;
+    p.size  *= 1.015;
+    const v  = Math.round(140 + p.alpha * 80);
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle   = `rgb(${v},${v},${v})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---- Cars ----
+function drawCarsLayer(ctx) {
+  const zoom = gameState.camera.zoom;
+  for (const car of gameState.cars) {
+    if (!car.active) continue;
+    ctx.save();
+    ctx.translate(car.sx, car.sy);
+    ctx.rotate(car.angle);
+    ctx.fillStyle = car.color;
+    ctx.fillRect(-5*zoom, -2.5*zoom, 10*zoom, 5*zoom);
+    ctx.fillStyle = 'rgba(180,220,255,0.85)';
+    ctx.fillRect(-3*zoom, -2*zoom, 3*zoom, 4*zoom);
+    ctx.fillRect( 1*zoom, -2*zoom, 3*zoom, 4*zoom);
+    ctx.restore();
+  }
+}
+
+// ---- Pedestrians ----
+function drawPedestriansLayer(ctx) {
+  const zoom = gameState.camera.zoom;
+  for (const ped of gameState.pedestrians) {
+    ctx.fillStyle = ped.color;
+    ctx.beginPath();
+    ctx.arc(ped.sx, ped.sy, 2.8*zoom, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// ---- Day/night overlay ----
+function getNightPct() {
+  // gameState.dayPhase 0→1 is one full day; 0=noon, 0.5=midnight
+  const p = gameState.dayPhase;
+  return Math.max(0, Math.sin(p * Math.PI * 2 - Math.PI/2) * -0.5 + 0.5 - 0.5) * 2;
+  // Actually simpler: use a sine that peaks at 0.5
+}
+function getNightPctSimple() {
+  // dayPhase 0 = dawn, 0.5 = peak day, 1 = back to dawn
+  return Math.max(0, Math.cos(gameState.dayPhase * Math.PI * 2) * 0.55);
+}
+
+function drawNightOverlay(ctx, nightPct) {
+  const n = getNightPctSimple();
+  if (n < 0.02) return;
+  ctx.globalAlpha = n;
+  ctx.fillStyle   = '#000d22';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalAlpha = 1;
+
+  // Stars
+  if (n > 0.2) {
+    ctx.globalAlpha = (n - 0.2) * 1.4;
+    ctx.fillStyle   = '#ffffff';
+    for (let i = 0; i < 60; i++) {
+      const sx = ((i * 197.3) % canvas.width);
+      const sy = ((i * 89.7)  % 150);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 0.8 + (i % 3) * 0.4, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---- Minimap ----
+function renderMinimap() {
+  const W  = mmCanvas.width;
+  const H  = mmCanvas.height;
+  const sc = W / MAP_SIZE;
+  const sr = H / MAP_SIZE;
+
+  mmCtx.fillStyle = '#0a1420';
+  mmCtx.fillRect(0, 0, W, H);
+
+  for (let r = 0; r < MAP_SIZE; r++) {
+    for (let c = 0; c < MAP_SIZE; c++) {
+      const tile = gameState.tiles[r][c];
+      let col;
+      switch (tile.type) {
+        case 'grass': col = tile.owned ? '#3a6020' : '#1e3a10'; break;
+        case 'water': col = '#1a3a80'; break;
+        case 'tree':  col = '#122808'; break;
+        default:      col = '#0a1420';
+      }
+      const key = `${c},${r}`;
+      if (gameState.buildings[key]) {
+        const def = BUILDING_DEFS[gameState.buildings[key].type];
+        col = def ? def.color : '#606060';
+      }
+      mmCtx.fillStyle = col;
+      mmCtx.fillRect(c*sc, r*sr, Math.ceil(sc)+1, Math.ceil(sr)+1);
+    }
+  }
+
+  // Viewport rectangle
+  const zoom = gameState.camera.zoom;
+  const tw   = TILE_W * zoom;
+  const th   = TILE_H * zoom;
+  // Find world tile that corresponds to each corner of the screen
+  const tl = screenToIso(0, 0);
+  const br = screenToIso(canvas.width, canvas.height);
+  const vx = tl.col * sc;
+  const vy = tl.row * sr;
+  const vw = (br.col - tl.col) * sc;
+  const vh = (br.row - tl.row) * sr;
+  mmCtx.strokeStyle = 'rgba(255,255,255,0.7)';
+  mmCtx.lineWidth   = 1;
+  mmCtx.strokeRect(vx, vy, vw, vh);
+}
+
+// ============================================================
+// COLOR HELPERS (used throughout renderer)
+// ============================================================
+function colorMix(hexA, hexB, t) {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  if (!a || !b) return hexA;
+  const r = Math.round(a.r + (b.r - a.r) * t);
+  const g = Math.round(a.g + (b.g - a.g) * t);
+  const bl= Math.round(a.b + (b.b - a.b) * t);
+  return `rgb(${r},${g},${bl})`;
+}
+function hexToRgb(hex) {
+  if (!hex || !hex.startsWith('#')) {
+    const m = hex && hex.match(/\d+/g);
+    return m ? { r:+m[0], g:+m[1], b:+m[2] } : null;
+  }
+  const n = parseInt(hex.slice(1), 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+
+// ============================================================
+// ============================================================
+// SECTION 10: INPUT HANDLER
+// ============================================================
+let _dragActive  = false;
+let _dragMoved   = false;
+let _lastMX = 0, _lastMY = 0;
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  _dragActive = true;
+  _dragMoved  = false;
+  _lastMX = e.clientX;
+  _lastMY = e.clientY;
+  canvas.classList.add('grabbing');
+});
+
+canvas.addEventListener('mousemove', e => {
+  const mx = e.clientX, my = e.clientY;
+
+  if (_dragActive) {
+    const dx = mx - _lastMX;
+    const dy = my - _lastMY;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) _dragMoved = true;
+    if (_dragMoved) {
+      gameState.camera.x += dx;
+      gameState.camera.y += dy;
+    }
+    _lastMX = mx;
+    _lastMY = my;
+  }
+
+  // Update hover tile for placement preview
+  if (gameState.selectedBuilding) {
+    gameState.hoverTile = screenToIso(mx, my);
+    updateLandTooltip(mx, my);
+  } else {
+    gameState.hoverTile = null;
+    hideLandTooltip();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  canvas.classList.remove('grabbing');
+  if (_dragActive && !_dragMoved) handleCanvasClick(e);
+  _dragActive = false;
+});
+
+canvas.addEventListener('mouseleave', () => {
+  _dragActive = false;
+  canvas.classList.remove('grabbing');
+  hideLandTooltip();
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor   = e.deltaY > 0 ? 0.88 : 1.14;
+  const newZoom  = Math.min(2.5, Math.max(0.25, gameState.camera.zoom * factor));
+  const mx = e.clientX, my = e.clientY;
+  gameState.camera.x = mx - (mx - gameState.camera.x) * (newZoom / gameState.camera.zoom);
+  gameState.camera.y = my - (my - gameState.camera.y) * (newZoom / gameState.camera.zoom);
+  gameState.camera.zoom = newZoom;
+}, { passive:false });
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  cancelPlacement();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { cancelPlacement(); hideBuildingPanel(); }
+});
+
+function handleCanvasClick(e) {
+  const iso = screenToIso(e.clientX, e.clientY);
+  const c = iso.col, r = iso.row;
+  if (c < 0 || c >= MAP_SIZE || r < 0 || r >= MAP_SIZE) return;
+
+  if (gameState.selectedBuilding) {
+    tryPlaceBuilding(c, r);
+    return;
+  }
+
+  const key = `${c},${r}`;
+  if (gameState.buildings[key]) {
+    showBuildingPanel(c, r);
+    return;
+  }
+
+  const tile = gameState.tiles[r][c];
+  if (tile.type === 'grass') {
+    const town = TOWNS[tile.townId];
+    if (town && town.unlocked && !tile.owned) {
+      tryBuyLand(c, r);
+      return;
+    } else if (town && !town.unlocked) {
+      addNotification(`${town.name} is locked. Reach $${fmtM(town.unlockCash)} net worth.`);
+    }
+  }
+  hideBuildingPanel();
+}
+
+function cancelPlacement() {
+  gameState.selectedBuilding = null;
+  gameState.hoverTile        = null;
+  canvas.classList.remove('placing');
+  refreshToolbarHighlight();
+}
+
+function updateLandTooltip(mx, my) {
+  const iso  = screenToIso(mx, my);
+  const c = iso.col, r = iso.row;
+  if (c < 0 || c >= MAP_SIZE || r < 0 || r >= MAP_SIZE) { hideLandTooltip(); return; }
+  const tile = gameState.tiles[r][c];
+  if (tile.type !== 'grass' || tile.owned) { hideLandTooltip(); return; }
+  const tt = document.getElementById('landTooltip');
+  tt.textContent = `Buy land: $${fmtM(tile.landCost)}`;
+  tt.style.display = 'block';
+  tt.style.left    = (mx + 14) + 'px';
+  tt.style.top     = (my - 10) + 'px';
+}
+function hideLandTooltip() {
+  document.getElementById('landTooltip').style.display = 'none';
+}
+
+// ============================================================
+// SECTION 11: ECONOMY — PLACEMENT, SALE, UPGRADE
+// ============================================================
+
+function canPlace(c, r) {
+  if (c < 0 || c >= MAP_SIZE || r < 0 || r >= MAP_SIZE) return false;
+  const tile = gameState.tiles[r][c];
+  if (tile.type !== 'grass') return false;
+  if (!TOWNS[tile.townId]?.unlocked) return false;
+  if (gameState.buildings[`${c},${r}`]) return false;
+
+  const btype = gameState.selectedBuilding;
+  if (!btype) return false;
+
+  // Hotel: requires adjacent paved_road AND park
+  if (btype === 'hotel') {
+    const adj = getAdjacentTiles(c, r);
+    const hasRoad = adj.some(t => gameState.buildings[`${t.c},${t.r}`]?.type === 'paved_road');
+    const hasPark = adj.some(t => gameState.buildings[`${t.c},${t.r}`]?.type === 'park');
+    if (!hasRoad || !hasPark) return false;
+  }
+  return true;
+}
+
+function tryBuyLand(c, r) {
+  const tile = gameState.tiles[r][c];
+  if (tile.owned) return true;
+  const cost = tile.landCost;
+  if (gameState.cash < cost) {
+    addNotification(`Need $${fmtM(cost)} to buy this land.`);
+    return false;
+  }
+  gameState.cash -= cost;
+  tile.owned = true;
+  gameState.ownedLand[`${c},${r}`] = true;
+
+  // Escalate land cost for this town
+  const town = TOWNS[tile.townId];
+  const owned = Object.values(gameState.ownedLand).length;
+  tile.landCost = Math.floor(town.baseLandCost * (1 + owned * 0.05));
+
+  addNotification(`Land purchased for $${fmtM(cost)}.`);
+  updateHUD();
+  return true;
+}
+
+function tryPlaceBuilding(c, r) {
+  const def = BUILDING_DEFS[gameState.selectedBuilding];
+  if (!def) return;
+
+  const tile = gameState.tiles[r] && gameState.tiles[r][c];
+  if (!tile) return;
+
+  if (tile.type !== 'grass') { addNotification('Can only build on land tiles.'); return; }
+  const town = TOWNS[tile.townId];
+  if (!town || !town.unlocked) { addNotification(`${town?.name||'Area'} is locked.`); return; }
+
+  // Auto-buy land if not already owned
+  if (!tile.owned) {
+    if (!tryBuyLand(c, r)) return;
+  }
+
+  if (gameState.buildings[`${c},${r}`]) { addNotification('Tile already occupied.'); return; }
+
+  if (gameState.cash < def.cost) {
+    addNotification(`Need $${fmtM(def.cost)} — only have $${fmtM(gameState.cash)}.`); return;
+  }
+
+  // Hotel pre-check
+  if (gameState.selectedBuilding === 'hotel') {
+    const adj = getAdjacentTiles(c, r);
+    const hasRoad = adj.some(t => gameState.buildings[`${t.c},${t.r}`]?.type === 'paved_road');
+    const hasPark = adj.some(t => gameState.buildings[`${t.c},${t.r}`]?.type === 'park');
+    if (!hasRoad || !hasPark) {
+      addNotification('Hotel requires an adjacent paved road and park.'); return;
+    }
+  }
+
+  gameState.cash -= def.cost;
+  const bld = createBuilding(gameState.selectedBuilding);
+  gameState.buildings[`${c},${r}`] = bld;
+  gameState.buildingsPlaced++;
+
+  // Unlock features
+  if (gameState.selectedBuilding === 'real_estate_agency') {
+    gameState.dealBoardUnlocked = true;
+    document.getElementById('dealBoardBtn').style.display = 'block';
+    generateDeals();
+    addNotification('Deal Board unlocked! Check top bar.');
+  }
+  if (gameState.selectedBuilding === 'bank') {
+    gameState.loansUnlocked = true;
+    document.getElementById('loanBtn').style.display = 'block';
+    addNotification('Loans unlocked! Visit the Bank to borrow.');
+  }
+
+  precomputeBoosts();
+  recalcIncomePerMin();
+  calcNetWorth();
+  checkMilestones();
+  updateHUD();
+  addNotification(`Built ${def.name} for $${fmtM(def.cost)}.`);
+}
+
+function sellBuilding(c, r) {
+  const key = `${c},${r}`;
+  const bld = gameState.buildings[key];
+  if (!bld) return;
+  const def      = BUILDING_DEFS[bld.type];
+  const sellPrice= Math.floor(def.cost * 0.6);
+  gameState.cash += sellPrice;
+  delete gameState.buildings[key];
+  addNotification(`Sold ${def.name} for $${fmtM(sellPrice)}.`);
+  hideBuildingPanel();
+  precomputeBoosts();
+  recalcIncomePerMin();
+  calcNetWorth();
+  updateHUD();
+}
+
+function demolishBuilding(c, r) {
+  const key = `${c},${r}`;
+  if (!gameState.buildings[key]) return;
+  const name = BUILDING_DEFS[gameState.buildings[key].type]?.name || 'Building';
+  delete gameState.buildings[key];
+  addNotification(`${name} demolished.`);
+  hideBuildingPanel();
+  precomputeBoosts();
+  recalcIncomePerMin();
+  calcNetWorth();
+  updateHUD();
+}
+
+function upgradeBuilding(c, r) {
+  const key = `${c},${r}`;
+  const bld = gameState.buildings[key];
+  if (!bld) return;
+  if ((bld.upgradeLevel||0) >= 3) { addNotification('Already at max upgrade level!'); return; }
+  const def   = BUILDING_DEFS[bld.type];
+  const cost  = Math.floor(def.cost * 0.5);
+  if (gameState.cash < cost) { addNotification(`Need $${fmtM(cost)} to upgrade.`); return; }
+  gameState.cash -= cost;
+  bld.upgradeLevel = (bld.upgradeLevel||0) + 1;
+  addNotification(`${def.name} upgraded to Lv${bld.upgradeLevel}! Income +40%.`);
+  hideBuildingPanel();
+  showBuildingPanel(c, r);
+  recalcIncomePerMin();
+  calcNetWorth();
+  updateHUD();
+}
+
+// ============================================================
+// SECTION 12: GRID HELPERS
+// ============================================================
+function getAdjacentTiles(c, r) {
+  return [
+    {c:c-1,r}, {c:c+1,r}, {c,r:r-1}, {c,r:r+1},
+  ].filter(t => t.c >= 0 && t.c < MAP_SIZE && t.r >= 0 && t.r < MAP_SIZE);
+}
+
+function getTilesInRadius(c, r, radius) {
+  const out = [];
+  for (let dr = -radius; dr <= radius; dr++) {
+    for (let dc = -radius; dc <= radius; dc++) {
+      if (Math.abs(dc) + Math.abs(dr) > radius) continue;
+      const nc = c+dc, nr = r+dr;
+      if (nc >= 0 && nc < MAP_SIZE && nr >= 0 && nr < MAP_SIZE)
+        out.push({c:nc, r:nr});
+    }
+  }
+  return out;
+}
+
+// ============================================================
+// SECTION 13: ECONOMY — INCOME ENGINE
+// ============================================================
+
+/** Pre-compute infrastructure boost cache.
+    Called whenever buildings change, not every frame. */
+function precomputeBoosts() {
+  gameState.boostCache = {};
+  for (const [key, bld] of Object.entries(gameState.buildings)) {
+    const def = BUILDING_DEFS[bld.type];
+    if (!def || !def.infra || !def.boost) continue;
+    const [c, r] = key.split(',').map(Number);
+    const tiles = getTilesInRadius(c, r, def.boostRange);
+    for (const t of tiles) {
+      const tkey = `${t.c},${t.r}`;
+      const target = gameState.buildings[tkey];
+      if (!target) continue;
+      const tdef = BUILDING_DEFS[target.type];
+      if (!tdef || tdef.infra) continue;
+      // Category filter
+      if (!def.boostCat || def.boostCat === tdef.cat) {
+        gameState.boostCache[tkey] = (gameState.boostCache[tkey]||0) + def.boost;
+      }
+    }
+  }
+}
+
+function calcBuildingIncome(c, r, bld) {
+  const def = BUILDING_DEFS[bld.type];
+  if (!def || def.income === 0) return 0;
+  const tile  = gameState.tiles[r][c];
+  const town  = tile.townId >= 0 ? TOWNS[tile.townId] : null;
+  const mult  = town ? town.multiplier : 1;
+  let base    = def.income * mult;
+  // Upgrade bonus: +40% per level
+  base *= Math.pow(1.4, bld.upgradeLevel||0);
+  // Infrastructure boost
+  const boost = gameState.boostCache[`${c},${r}`] || 0;
+  return Math.floor(base * (1 + boost));
+}
+
+function recalcIncomePerMin() {
+  let total = 0;
+  for (const [key, bld] of Object.entries(gameState.buildings)) {
+    const [c, r] = key.split(',').map(Number);
+    total += calcBuildingIncome(c, r, bld);
+  }
+  // Subtract loan repayments (10% of gross income)
+  const loanPayment = gameState.loans.reduce((s, l) => s + Math.floor(total * 0.1), 0);
+  gameState.incomePerMin = Math.max(0, total - loanPayment);
+  updateHUD();
+}
+
+/** Called each frame — fires income for each building on its own 60-second timer. */
+function processIncome(now) {
+  let incomeThisFrame = 0;
+  for (const [key, bld] of Object.entries(gameState.buildings)) {
+    if (now < bld.nextIncomeAt) continue;
+    bld.nextIncomeAt = now + INCOME_INTERVAL;
+    const [c, r] = key.split(',').map(Number);
+    const income = calcBuildingIncome(c, r, bld);
+    if (income <= 0) continue;
+    gameState.cash       += income;
+    gameState.totalEarned += income;
+    bld.totalEarned       = (bld.totalEarned||0) + income;
+    incomeThisFrame      += income;
+    // Floating income popup
+    const sp = isoToScreen(c, r);
+    gameState.floatingTexts.push({
+      x: sp.x, y: sp.y - 18,
+      text: `+$${fmtM(income)}`,
+      color: '#ffd700', alpha: 1, size: 13,
+    });
+  }
+  if (incomeThisFrame > 0) updateHUD();
+}
+
+function processLoans(now) {
+  if (!gameState.loans.length) return;
+  const gross = Object.entries(gameState.buildings).reduce((s,[key,bld]) => {
+    const [c,r] = key.split(',').map(Number);
+    return s + calcBuildingIncome(c, r, bld);
+  }, 0);
+
+  for (let i = gameState.loans.length-1; i >= 0; i--) {
+    const loan = gameState.loans[i];
+    if (now < loan.nextPayAt) continue;
+    loan.nextPayAt = now + INCOME_INTERVAL;
+    const payment  = Math.min(loan.remaining, Math.max(1, Math.floor(gross * 0.1)));
+    loan.remaining -= payment;
+    gameState.cash  = Math.max(0, gameState.cash - payment);
+    if (loan.remaining <= 0) {
+      gameState.loans.splice(i, 1);
+      addNotification('Loan fully repaid! Well done.');
+    }
+  }
+}
+
+function calcNetWorth() {
+  let worth = gameState.cash;
+  for (const [key, bld] of Object.entries(gameState.buildings)) {
+    const def = BUILDING_DEFS[bld.type];
+    if (def) worth += def.cost;
+  }
+  for (const key of Object.keys(gameState.ownedLand)) {
+    const [c, r] = key.split(',').map(Number);
+    const tile = gameState.tiles[r]?.[c];
+    if (tile) worth += tile.landCost * 0.5;
+  }
+  gameState.netWorth = Math.floor(worth);
+
+  // Check town unlocks
+  for (const town of TOWNS) {
+    if (!town.unlocked && gameState.netWorth >= town.unlockCash) {
+      town.unlocked = true;
+      triggerMilestone(`🏙 ${town.name} Unlocked!`,
+        `${town.desc} Property values are ${town.multiplier}x here!`,
+        town.id === 1 ? 25000 : 100000);
+    }
+  }
+}
+
+// ============================================================
+// ============================================================
+// SECTION 14: MILESTONES
+// ============================================================
+const MILESTONE_DEFS = [
+  { id:'first_bld',   check:()=> gameState.buildingsPlaced >= 1,
+    msg:'First Building Placed!', emoji:'🏗', reward:500,   title:null },
+  { id:'ten_bld',     check:()=> gameState.buildingsPlaced >= 10,
+    msg:'10 Buildings!',          emoji:'🏘', reward:2000,  title:null },
+  { id:'earned_50k',  check:()=> gameState.totalEarned >= 50000,
+    msg:'Local Landlord!',        emoji:'🔑', reward:5000,  title:'Local Landlord' },
+  { id:'nw_500k',     check:()=> gameState.netWorth >= 500000,
+    msg:'Millbrook Unlocked!',    emoji:'🌆', reward:25000, title:null },
+  { id:'nw_5m',       check:()=> gameState.netWorth >= 5000000,
+    msg:'Crestview Heights!',     emoji:'🏔', reward:100000,title:null },
+  { id:'nw_50m',      check:()=> gameState.netWorth >= 50000000,
+    msg:'Real Estate Tycoon!',    emoji:'👑', reward:0,     title:'Real Estate Tycoon' },
+];
+
+function checkMilestones() {
+  for (const ms of MILESTONE_DEFS) {
+    if (gameState.milestones[ms.id]) continue;
+    if (!ms.check()) continue;
+    gameState.milestones[ms.id] = true;
+    if (ms.reward > 0) gameState.cash += ms.reward;
+    if (ms.title)      gameState.title = ms.title;
+    triggerMilestone(ms.msg, ms.reward > 0 ? `Reward: +$${fmtM(ms.reward)}` : '', ms.reward, ms.emoji);
+  }
+}
+
+function triggerMilestone(title, sub, reward, emoji) {
+  addNotification(`${emoji||'🏆'} ${title}`);
+  const banner = document.getElementById('milestoneBanner');
+  document.getElementById('bannerEmoji').textContent  = emoji || '🏆';
+  document.getElementById('bannerTitle').textContent  = title;
+  document.getElementById('bannerSub').textContent    = sub || '';
+  banner.style.display  = 'block';
+  banner.style.opacity  = '1';
+  clearTimeout(banner._fadeTimer);
+  banner._fadeTimer = setTimeout(() => {
+    banner.style.transition = 'opacity 1s';
+    banner.style.opacity    = '0';
+    setTimeout(() => {
+      banner.style.display    = 'none';
+      banner.style.transition = '';
+    }, 1000);
+  }, 4500);
+  updateHUD();
+}
+
+// ============================================================
+// SECTION 15: DEAL BOARD
+// ============================================================
+function generateDeals() {
+  const now = Date.now();
+  gameState.deals = [];
+  gameState.lastDealRefresh = now;
+  const EXP = 300000; // 5 minutes
+
+  // Build a pool of possible deals
+  const pool = [
+    {
+      text:'Sell a Warehouse in any town for a profit',
+      reward: 80000 + Math.floor(Math.random()*120000),
+      cond: () => Object.values(gameState.buildings).some(b => b.type==='warehouse'),
+    },
+    {
+      text:'Own at least 5 buildings in Dusty Flats',
+      reward: 50000,
+      cond: () => {
+        let cnt = 0;
+        for (const [k,b] of Object.entries(gameState.buildings)) {
+          const [c,r] = k.split(',').map(Number);
+          if (gameState.tiles[r]?.[c]?.townId === 0) cnt++;
+        }
+        return cnt >= 5;
+      },
+    },
+    {
+      text:'Build a Hotel adjacent to a Park',
+      reward: 1000000,
+      cond: () => {
+        for (const [k,b] of Object.entries(gameState.buildings)) {
+          if (b.type !== 'hotel') continue;
+          const [c,r] = k.split(',').map(Number);
+          if (getAdjacentTiles(c,r).some(t => gameState.buildings[`${t.c},${t.r}`]?.type==='park'))
+            return true;
+        }
+        return false;
+      },
+    },
+    {
+      text:`Reach ${gameState.buildingsPlaced + 5} total buildings`,
+      reward: 30000 + Math.floor(Math.random()*70000),
+      cond: () => gameState.buildingsPlaced >= gameState.buildingsPlaced + 5,
+    },
+    {
+      text:'Build a Shopping Center anywhere',
+      reward: 250000,
+      cond: () => Object.values(gameState.buildings).some(b => b.type==='shopping_center'),
+    },
+    {
+      text:'Earn $100,000 total from rent & revenue',
+      reward: 20000,
+      cond: () => gameState.totalEarned >= 100000,
+    },
+    {
+      text:'Place a Transit Hub to boost your district',
+      reward: 200000,
+      cond: () => Object.values(gameState.buildings).some(b => b.type==='transit_hub'),
+    },
+    {
+      text:'Build three Luxury Condo Towers',
+      reward: 2000000,
+      cond: () => Object.values(gameState.buildings).filter(b=>b.type==='luxury_condo').length >= 3,
+    },
+  ];
+
+  // Pick 3 random deals
+  const shuffled = pool.sort(()=>Math.random()-0.5).slice(0, 3);
+  for (const d of shuffled) {
+    gameState.deals.push({ ...d, expires: now + EXP, completed: false, claimed: false });
+  }
+  renderDealBoard();
+}
+
+function checkDeals() {
+  if (!gameState.dealBoardUnlocked) return;
+  const now = Date.now();
+
+  // Refresh if expired
+  if (now - gameState.lastDealRefresh > 300000) { generateDeals(); return; }
+
+  let changed = false;
+  for (const deal of gameState.deals) {
+    if (deal.completed || deal.claimed) continue;
+    if (deal.cond && deal.cond()) {
+      deal.completed = true;
+      deal.claimed   = true;
+      gameState.cash += deal.reward;
+      gameState.totalEarned += deal.reward;
+      addNotification(`Deal complete! +$${fmtM(deal.reward)} 💰`);
+      changed = true;
+    }
+  }
+  if (changed) { renderDealBoard(); updateHUD(); }
+}
+
+function renderDealBoard() {
+  const container = document.getElementById('dealsList');
+  if (!container) return;
+  container.innerHTML = '';
+  const now = Date.now();
+  for (const deal of gameState.deals) {
+    const div = document.createElement('div');
+    div.className = 'deal-item' + (deal.completed ? ' deal-completed' : '');
+    const msLeft = Math.max(0, deal.expires - now);
+    const m = Math.floor(msLeft/60000);
+    const s = Math.floor((msLeft%60000)/1000);
+    div.innerHTML = `
+      <div class="deal-text">${deal.text}</div>
+      <div class="deal-reward">Reward: $${fmtM(deal.reward)}</div>
+      <div class="deal-timer">${deal.completed ? '✅ Completed!' : `⏱ ${m}:${String(s).padStart(2,'0')}`}</div>`;
+    container.appendChild(div);
+  }
+}
+
+// ============================================================
+// SECTION 16: LOANS
+// ============================================================
+function takeLoan(amount) {
+  const totalRepay = Math.floor(amount * 1.15);
+  gameState.loans.push({
+    amount, remaining: totalRepay, originalAmount: amount,
+    nextPayAt: Date.now() + INCOME_INTERVAL,
+  });
+  gameState.cash += amount;
+  addNotification(`Borrowed $${fmtM(amount)}. Repaying $${fmtM(totalRepay)} total (10%/min).`);
+  hideLoanPanel();
+  recalcIncomePerMin();
+  updateHUD();
+}
+
+// ============================================================
+// SECTION 17: ANIMATION SYSTEM
+// ============================================================
+
+// ---- Day / Night ----
+let _dayStart = 0;
+function initDayNight() { _dayStart = performance.now(); }
+function updateDayNight(now) {
+  const CYCLE = 600000; // 10 minutes
+  gameState.dayPhase = ((now - _dayStart) % CYCLE) / CYCLE;
+}
+
+// ---- Cars ----
+const CAR_COLORS = ['#ffffff','#cccccc','#e83030','#f0cc20','#3060e0','#40cc60'];
+
+function getRoadTiles() {
+  const roads = [];
+  for (const [key, bld] of Object.entries(gameState.buildings)) {
+    if (bld.type === 'paved_road') {
+      const [c,r] = key.split(',').map(Number);
+      roads.push({c,r});
+    }
+  }
+  return roads;
+}
+
+function findRoadPath(sc, sr, maxLen) {
+  const path  = [{c:sc, r:sr}];
+  let cur     = {c:sc, r:sr};
+  const visit = new Set([`${sc},${sr}`]);
+  for (let i = 0; i < maxLen; i++) {
+    const neighbours = getAdjacentTiles(cur.c, cur.r).filter(t => {
+      const k = `${t.c},${t.r}`;
+      return gameState.buildings[k]?.type === 'paved_road' && !visit.has(k);
+    });
+    if (!neighbours.length) break;
+    cur = neighbours[Math.floor(Math.random()*neighbours.length)];
+    visit.add(`${cur.c},${cur.r}`);
+    path.push(cur);
+  }
+  return path;
+}
+
+function maintainCars() {
+  const roads = getRoadTiles();
+  // Remove cars whose path is now invalid
+  gameState.cars = gameState.cars.filter(car => {
+    const still = gameState.buildings[`${car.homeC},${car.homeR}`]?.type === 'paved_road';
+    return still && car.active;
+  });
+  const target = Math.min(roads.length * 2, 18);
+  while (gameState.cars.length < target && roads.length > 0) {
+    const start = roads[Math.floor(Math.random()*roads.length)];
+    const path  = findRoadPath(start.c, start.r, 12);
+    if (path.length < 2) continue;
+    gameState.cars.push({
+      homeC:  start.c, homeR: start.r,
+      path, progress: 0,
+      speed:  0.4 + Math.random()*0.3,
+      color:  CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)],
+      sx:0, sy:0, angle:0, active:true,
+    });
+  }
+}
+
+function updateCars(dt) {
+  for (const car of gameState.cars) {
+    car.progress += car.speed * dt / 2000;
+    if (car.progress >= car.path.length - 1) {
+      // Restart on new path
+      const roads = getRoadTiles();
+      if (!roads.length) { car.active = false; continue; }
+      const start = roads[Math.floor(Math.random()*roads.length)];
+      car.path     = findRoadPath(start.c, start.r, 12);
+      car.progress = 0;
+      car.homeC    = start.c; car.homeR = start.r;
+      if (car.path.length < 2) { car.active = false; continue; }
+    }
+    const idx  = Math.min(Math.floor(car.progress), car.path.length-2);
+    const frac = car.progress - idx;
+    const from = car.path[idx];
+    const to   = car.path[idx+1];
+    const fs   = isoToScreen(from.c, from.r);
+    const ts2  = isoToScreen(to.c,   to.r);
+    car.sx     = fs.x + (ts2.x - fs.x)*frac;
+    car.sy     = fs.y + (ts2.y - fs.y)*frac;
+    car.angle  = Math.atan2(ts2.y - fs.y, ts2.x - fs.x);
+  }
+}
+
+// ---- Pedestrians ----
+const PED_COLORS = ['#ff8888','#88ff88','#8888ff','#ffff88','#ff88ff','#88ffff'];
+
+function maintainPedestrians() {
+  const resBuildings = Object.entries(gameState.buildings).filter(([k,b]) => {
+    const def = BUILDING_DEFS[b.type];
+    return def && (def.cat === 'residential' || def.cat === 'commercial');
+  });
+  const target = Math.min(resBuildings.length * 2, 25);
+
+  while (gameState.pedestrians.length < target && resBuildings.length > 0) {
+    const [key] = resBuildings[Math.floor(Math.random()*resBuildings.length)];
+    const [bc, br] = key.split(',').map(Number);
+    gameState.pedestrians.push({
+      x: bc + (Math.random()-0.5)*2,
+      y: br + (Math.random()-0.5)*2,
+      tx: bc + (Math.random()-0.5)*3,
+      ty: br + (Math.random()-0.5)*3,
+      speed: 0.25 + Math.random()*0.2,
+      color: PED_COLORS[Math.floor(Math.random()*PED_COLORS.length)],
+      sx: 0, sy: 0,
+      retargetAt: Date.now() + 3000 + Math.random()*5000,
+    });
+  }
+  while (gameState.pedestrians.length > target) gameState.pedestrians.pop();
+}
+
+function updatePedestrians(dt, now) {
+  const resBuildings = Object.entries(gameState.buildings).filter(([k,b]) => {
+    const def = BUILDING_DEFS[b.type];
+    return def && (def.cat==='residential'||def.cat==='commercial');
+  });
+
+  for (const ped of gameState.pedestrians) {
+    if (now >= ped.retargetAt && resBuildings.length > 0) {
+      const [key] = resBuildings[Math.floor(Math.random()*resBuildings.length)];
+      const [bc, br] = key.split(',').map(Number);
+      ped.tx = bc + (Math.random()-0.5)*3;
+      ped.ty = br + (Math.random()-0.5)*3;
+      ped.retargetAt = now + 3000 + Math.random()*6000;
+    }
+    const dx = ped.tx - ped.x, dy = ped.ty - ped.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist > 0.05) {
+      ped.x += (dx/dist) * ped.speed * dt / 1000;
+      ped.y += (dy/dist) * ped.speed * dt / 1000;
+    }
+    const sp = isoToScreen(ped.x, ped.y);
+    ped.sx = sp.x; ped.sy = sp.y;
+  }
+}
+
+// ============================================================
+// ============================================================
+// SECTION 18: UI MANAGER
+// ============================================================
+
+/** Format money: 1500 → "$1.5K", 2000000 → "$2.0M" */
+function fmtM(n) {
+  n = Math.floor(n);
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+  return '$' + n.toLocaleString();
+}
+
+function updateHUD() {
+  document.getElementById('cashDisplay').textContent    = fmtM(gameState.cash);
+  document.getElementById('incomeDisplay').textContent  = fmtM(gameState.incomePerMin) + '/min';
+  document.getElementById('networthDisplay').textContent= fmtM(gameState.netWorth);
+  document.getElementById('titleDisplay').textContent   = gameState.title;
+
+  // Show the most developed unlocked town
+  let tname = TOWNS[0].name;
+  for (let i = TOWNS.length-1; i >= 0; i--) {
+    if (TOWNS[i].unlocked) { tname = TOWNS[i].name; break; }
+  }
+  document.getElementById('townDisplay').textContent = tname;
+
+  // Net-worth colour gradient: yellow → gold when approaching tycoon
+  if (gameState.netWorth >= 50000000) {
+    document.getElementById('hud').style.borderBottom = '1px solid rgba(255,215,0,0.5)';
+  }
+}
+
+function addNotification(text) {
+  const feed = document.getElementById('notificationFeed');
+  const div  = document.createElement('div');
+  div.className   = 'notification';
+  div.textContent = text;
+  feed.insertBefore(div, feed.firstChild);
+  while (feed.children.length > 7) feed.removeChild(feed.lastChild);
+  setTimeout(() => { div.style.opacity='0'; setTimeout(()=>div.remove(),500); }, 5000);
+}
+
+// ---- Building panel ----
+function showBuildingPanel(c, r) {
+  const key = `${c},${r}`;
+  const bld = gameState.buildings[key];
+  if (!bld) return;
+  const def = BUILDING_DEFS[bld.type];
+  gameState.selectedTile = {col:c, row:r};
+
+  document.getElementById('panelName').textContent    = def.name;
+  document.getElementById('panelDesc').textContent    = def.desc;
+  const income = calcBuildingIncome(c, r, bld);
+  document.getElementById('panelIncome').textContent  = income > 0 ? fmtM(income)+'/min' : 'No income';
+  document.getElementById('panelEarned').textContent  = fmtM(bld.totalEarned||0);
+  document.getElementById('panelUpgLevel').textContent= `${bld.upgradeLevel||0} / 3`;
+
+  const upgradeBtn = document.getElementById('upgradeBuildingBtn');
+  if ((bld.upgradeLevel||0) < 3 && def.income > 0) {
+    const upgCost = Math.floor(def.cost * 0.5);
+    upgradeBtn.style.display = 'block';
+    upgradeBtn.textContent   = `⬆ Upgrade (+40% income) — ${fmtM(upgCost)}`;
+    upgradeBtn.onclick       = () => upgradeBuilding(c, r);
+  } else {
+    upgradeBtn.style.display = 'none';
+  }
+
+  document.getElementById('sellBuildingBtn').textContent = `💰 Sell — ${fmtM(Math.floor(def.cost*0.6))}`;
+  document.getElementById('sellBuildingBtn').onclick     = () => sellBuilding(c, r);
+  document.getElementById('demolishBuildingBtn').onclick = () => {
+    if (confirm(`Demolish ${def.name}? No refund.`)) demolishBuilding(c, r);
+  };
+
+  document.getElementById('buildingPanel').style.display = 'block';
+}
+
+function hideBuildingPanel() {
+  document.getElementById('buildingPanel').style.display = 'none';
+  gameState.selectedTile = null;
+}
+
+// ---- Deal board ----
+function showDealBoard() {
+  if (!gameState.dealBoardUnlocked) { addNotification('Build a Real Estate Agency to unlock deals.'); return; }
+  if (!gameState.deals.length) generateDeals();
+  renderDealBoard();
+  document.getElementById('dealBoard').style.display = 'block';
+}
+function hideDealBoard() {
+  document.getElementById('dealBoard').style.display = 'none';
+}
+
+// ---- Loan panel ----
+function showLoanPanel() {
+  if (!gameState.loansUnlocked) { addNotification('Build a Bank to unlock loans.'); return; }
+  const info = document.getElementById('activeLoanInfo');
+  if (gameState.loans.length > 0) {
+    const totalOwed = gameState.loans.reduce((s,l)=>s+l.remaining,0);
+    info.textContent = `Active loans: ${fmtM(totalOwed)} remaining`;
+    info.style.display = 'block';
+  } else {
+    info.style.display = 'none';
+  }
+  document.getElementById('loanPanel').style.display = 'block';
+}
+function hideLoanPanel() {
+  document.getElementById('loanPanel').style.display = 'none';
+}
+
+// ---- Settings ----
+function toggleSettings() {
+  const m = document.getElementById('settingsMenu');
+  m.style.display = m.style.display === 'block' ? 'none' : 'block';
+}
+
+// ---- Toolbar ----
+function buildToolbar() {
+  const tabBar  = document.getElementById('tabBar');
+  const bldBtns = document.getElementById('buildingButtons');
+
+  tabBar.innerHTML = '';
+  for (const cat of CATEGORIES) {
+    const btn = document.createElement('button');
+    btn.className   = 'tab-btn' + (cat === gameState.activeTab ? ' active' : '');
+    btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+    btn.onclick     = () => { gameState.activeTab = cat; buildToolbar(); };
+    tabBar.appendChild(btn);
+  }
+
+  bldBtns.innerHTML = '';
+  for (const [id, def] of Object.entries(BUILDING_DEFS)) {
+    if (def.cat !== gameState.activeTab) continue;
+    const btn = document.createElement('button');
+    btn.className = 'build-btn' + (gameState.selectedBuilding === id ? ' selected' : '');
+    if (gameState.cash < def.cost) btn.classList.add('unaffordable');
+
+    let reqText = '';
+    if (id === 'hotel') reqText = '<div class="btn-req">Req: road + park</div>';
+
+    btn.innerHTML = `<div class="btn-name">${def.name}</div><div class="btn-cost">${fmtM(def.cost)}</div>${reqText}`;
+    btn.title     = def.desc;
+    btn.onclick   = () => {
+      if (gameState.selectedBuilding === id) { cancelPlacement(); return; }
+      gameState.selectedBuilding = id;
+      gameState.hoverTile        = null;
+      hideBuildingPanel();
+      canvas.classList.add('placing');
+      buildToolbar();
+    };
+    bldBtns.appendChild(btn);
+  }
+}
+
+function refreshToolbarHighlight() {
+  document.querySelectorAll('.build-btn').forEach(btn => btn.classList.remove('selected'));
+}
+
+// ---- Intro ----
+function startGame() {
+  document.getElementById('introOverlay').style.display = 'none';
+}
+
+// ============================================================
+// SECTION 19: SAVE / LOAD SYSTEM
+// ============================================================
+const SAVE_KEY = 'realestate_tycoon_save';
+
+function saveGame() {
+  const data = {
+    v: 1,
+    cash:              gameState.cash,
+    totalEarned:       gameState.totalEarned,
+    buildingsPlaced:   gameState.buildingsPlaced,
+    title:             gameState.title,
+    milestones:        gameState.milestones,
+    buildings:         gameState.buildings,
+    ownedLand:         gameState.ownedLand,
+    tiles:             gameState.tiles,
+    loans:             gameState.loans,
+    dealBoardUnlocked: gameState.dealBoardUnlocked,
+    loansUnlocked:     gameState.loansUnlocked,
+    deals:             gameState.deals,
+    lastDealRefresh:   gameState.lastDealRefresh,
+    towns:             TOWNS.map(t => ({id:t.id, unlocked:t.unlocked})),
+    camera:            gameState.camera,
+    dayPhase:          gameState.dayPhase,
+    ts:                Date.now(),
+  };
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    showToast('Game Saved ✓');
+  } catch(e) { console.warn('Save failed', e); }
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d || d.v !== 1) return false;
+
+    gameState.cash            = d.cash            ?? 10000;
+    gameState.totalEarned     = d.totalEarned      ?? 0;
+    gameState.buildingsPlaced = d.buildingsPlaced   ?? 0;
+    gameState.title           = d.title             ?? 'Aspiring Tycoon';
+    gameState.milestones      = d.milestones        ?? {};
+    gameState.buildings       = d.buildings         ?? {};
+    gameState.ownedLand       = d.ownedLand         ?? {};
+    gameState.tiles           = d.tiles             ?? [];
+    gameState.loans           = d.loans             ?? [];
+    gameState.dealBoardUnlocked = d.dealBoardUnlocked ?? false;
+    gameState.loansUnlocked   = d.loansUnlocked     ?? false;
+    gameState.deals           = d.deals             ?? [];
+    gameState.lastDealRefresh = d.lastDealRefresh   ?? 0;
+    gameState.dayPhase        = d.dayPhase          ?? 0;
+
+    if (d.towns) {
+      d.towns.forEach(st => {
+        const town = TOWNS.find(t => t.id === st.id);
+        if (town) town.unlocked = st.unlocked;
+      });
+    }
+    if (d.camera) gameState.camera = d.camera;
+
+    // Re-stagger income timers on load
+    const now = Date.now();
+    let offset = 0;
+    for (const bld of Object.values(gameState.buildings)) {
+      bld.nextIncomeAt = now + (offset % INCOME_INTERVAL);
+      offset += 2500;
+    }
+    // Re-stagger loan payments
+    for (const loan of gameState.loans) {
+      loan.nextPayAt = now + INCOME_INTERVAL;
+    }
+    return true;
+  } catch(e) { console.warn('Load failed', e); return false; }
+}
+
+function newGame() {
+  document.getElementById('settingsMenu').style.display = 'none';
+  if (!confirm('Start a new game? All progress will be permanently lost.')) return;
+  localStorage.removeItem(SAVE_KEY);
+  location.reload();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('saveToast');
+  t.textContent  = msg;
+  t.style.opacity= '1';
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.style.opacity = '0', 2200);
+}
+
+// ============================================================
+// SECTION 20: MAIN GAME LOOP
+// ============================================================
+let _lastTs = 0;
+
+function gameLoop(ts) {
+  const dt = Math.min(ts - _lastTs, 100); // cap delta to 100ms
+  _lastTs = ts;
+
+  const now = Date.now();
+
+  // Update economy
+  processIncome(now);
+  processLoans(now);
+  calcNetWorth();
+
+  // Update animations
+  updateDayNight(ts);
+  updateCars(dt);
+  updatePedestrians(dt, now);
+  maintainCars();
+  maintainPedestrians();
+
+  // Checks
+  checkMilestones();
+  checkDeals();
+
+  // Periodically refresh toolbar affordability highlights
+  buildToolbar._tick = (buildToolbar._tick||0) + dt;
+  if (buildToolbar._tick > 3000) {
+    buildToolbar._tick = 0;
+    buildToolbar();
+    renderDealBoard();
+  }
+
+  // Render
+  render(ts);
+
+  // Auto-save every 30 s
+  if (now - gameState.lastSave > 30000) {
+    saveGame();
+    gameState.lastSave = now;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// SECTION 21: INIT
+// ============================================================
+function init() {
+  const loaded = loadGame();
+
+  if (!loaded || !gameState.tiles.length) {
+    generateMap();
+    gameState.lastSave = Date.now();
+  }
+
+  // Sync day/night start so dayPhase is honoured
+  _dayStart = performance.now() - gameState.dayPhase * 600000;
+
+  // Unlock HUD buttons if already earned
+  if (gameState.dealBoardUnlocked) document.getElementById('dealBoardBtn').style.display = 'block';
+  if (gameState.loansUnlocked)     document.getElementById('loanBtn').style.display      = 'block';
+
+  precomputeBoosts();
+  recalcIncomePerMin();
+  calcNetWorth();
+  buildToolbar();
+  updateHUD();
+
+  // Show intro only on fresh game
+  if (loaded) {
+    document.getElementById('introOverlay').style.display = 'none';
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
+</body>
+</html>
